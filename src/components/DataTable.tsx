@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+
 import {
   Table,
   TableBody,
@@ -7,6 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
 import {
   Card,
   CardContent,
@@ -14,6 +16,7 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, ArrowUpDown, Download, BarChart, Calendar, ChevronDown, ChevronUp, Activity } from 'lucide-react';
@@ -37,7 +40,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, schema, onViewDashboard }) 
     key: 'created_at', // Default sort by created_at
     direction: 'descending' // Default to newest first
   });
-  
+
   // Date filter state
   const [dateRange, setDateRange] = useState<{
     startDate: Date | null;
@@ -47,7 +50,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, schema, onViewDashboard }) 
     endDate: null,
   });
 
-  const [activeRow, setActiveRow] = useState<number | null>(null);
+  const [activeRow, setActiveRow] = useState(null);
   const [showAnimation, setShowAnimation] = useState(false);
 
   // Ensure data is valid
@@ -86,22 +89,21 @@ const DataTable: React.FC<DataTableProps> = ({ data, schema, onViewDashboard }) 
     if (dateRange.startDate || dateRange.endDate) {
       filteredData = filteredData.filter((item: any) => {
         if (!item.created_at) return false;
-        
         const itemDate = new Date(item.created_at);
         if (!isValid(itemDate)) return false;
-        
+
         let includeRecord = true;
-        
+
         if (dateRange.startDate) {
           includeRecord = includeRecord && isAfter(itemDate, dateRange.startDate);
         }
-        
+
         if (dateRange.endDate) {
           const endDate = new Date(dateRange.endDate);
           endDate.setHours(23, 59, 59, 999); // Set to end of day
           includeRecord = includeRecord && isBefore(itemDate, endDate);
         }
-        
+
         return includeRecord;
       });
     }
@@ -116,32 +118,37 @@ const DataTable: React.FC<DataTableProps> = ({ data, schema, onViewDashboard }) 
           if (dateA < dateB) {
             return sortConfig.direction === 'ascending' ? -1 : 1;
           }
+          
           if (dateA > dateB) {
             return sortConfig.direction === 'ascending' ? 1 : -1;
           }
+          
           return 0;
         }
-        
+
         if (a[sortConfig.key] < b[sortConfig.key]) {
           return sortConfig.direction === 'ascending' ? -1 : 1;
         }
+        
         if (a[sortConfig.key] > b[sortConfig.key]) {
           return sortConfig.direction === 'ascending' ? 1 : -1;
         }
+        
         return 0;
       });
     }
+
     return filteredData;
   };
 
   const exportToCSV = () => {
     if (!tableData || tableData.length === 0) return;
-
+    
     const csvHeader = columns.join(',');
     const csvRows = getSortedData().map((item: any) =>
       columns.map(col => `"${String(item[col] !== undefined ? item[col] : '').replace(/"/g, '""')}"`).join(',')
     );
-
+    
     const csvContent = [csvHeader, ...csvRows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -182,31 +189,29 @@ const DataTable: React.FC<DataTableProps> = ({ data, schema, onViewDashboard }) 
         const formattedDate = format(date, 'MMM d, yyyy');
         const formattedTime = format(date, 'h:mm a');
         return (
-          <div className="flex flex-col">
-            <span className="font-medium">{formattedDate}</span>
-            <span className="text-xs text-slate-500">{formattedTime}</span>
+          <div className="text-center">
+            <div className="font-medium">{formattedDate}</div>
+            <div className="text-xs text-gray-500">{formattedTime}</div>
           </div>
         );
       } catch {
         return String(value);
       }
     }
-    
+
     if (column === 'amount' && (typeof value === 'number' || !isNaN(Number(value)))) {
       const numValue = Number(value) / 100;
-      const color = numValue >= high 
-        ? 'bg-green-100 text-green-800 border-green-300' 
-        : numValue >= medium 
+      const color = numValue >= high
+        ? 'bg-green-100 text-green-800 border-green-300'
+        : numValue >= medium
           ? 'bg-blue-100 text-blue-800 border-blue-300'
-          : numValue >= low 
+          : numValue >= low
             ? 'bg-slate-100 text-slate-800 border-slate-300'
             : 'bg-slate-50 text-slate-600 border-slate-200';
-
+      
       return (
-        <div className="flex items-center justify-end">
-          <Badge 
-            className={`${color} border px-2 py-0.5 text-xs font-medium rounded-md`}
-          >
+        <div className="flex justify-center">
+          <Badge variant="outline" className={`${color} font-medium`}>
             ${numValue.toFixed(2)}
           </Badge>
         </div>
@@ -215,26 +220,26 @@ const DataTable: React.FC<DataTableProps> = ({ data, schema, onViewDashboard }) 
 
     if (column === 'customer_id') {
       return (
-        <span className="text-sm font-mono text-slate-600">
-          {String(value)}
-        </span>
-      );
-    }
-
-    if (column === 'customer_email') {
-      return (
-        <div className="flex items-center">
-          <div className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mr-2 font-semibold text-xs">
-            {String(value).charAt(0).toUpperCase()}
-          </div>
-          <span className="text-sm truncate max-w-[200px]" title={String(value)}>
+        <div className="text-center">
+          <span className="text-xs font-mono bg-slate-100 p-1 rounded">
             {String(value)}
           </span>
         </div>
       );
     }
-    
-    return String(value);
+
+    if (column === 'customer_email') {
+      return (
+        <div className="flex items-center justify-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-medium">
+            {String(value).charAt(0).toUpperCase()}
+          </div>
+          <span>{String(value)}</span>
+        </div>
+      );
+    }
+
+    return <div className="text-center">{String(value)}</div>;
   };
 
   const clearDateFilters = () => {
@@ -247,243 +252,200 @@ const DataTable: React.FC<DataTableProps> = ({ data, schema, onViewDashboard }) 
   const sortedData = getSortedData();
 
   return (
-    <Card className="shadow-md border-0 overflow-hidden">
-      <CardHeader className="pb-4 border-b bg-gradient-to-r from-slate-50 to-white">
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle className="text-xl font-semibold text-slate-800 flex items-center">
-              <Activity className="mr-2 h-5 w-5 text-indigo-500" />
-              Transaction Data
-            </CardTitle>
-            <CardDescription className="text-sm text-slate-500 mt-1">
-              {tableData.length > 0 
-                ? `${sortedData.length} of ${tableData.length} records found` 
+    <div className="w-full">
+      {/* Center-aligned heading */}
+      <h1 className="text-2xl font-bold text-gray-800 mb-4 text-center">
+        Stripe payments data
+      </h1>
+      
+      <Card className="w-full shadow-sm">
+        <CardHeader className="flex flex-col items-center justify-between">
+          <div className="text-center w-full">
+            <CardTitle className="text-center">Successful Transaction Data</CardTitle>
+            <CardDescription className="text-center">
+              {tableData.length > 0
+                ? `${sortedData.length} of ${tableData.length} records found`
                 : 'No data available'}
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 mt-2">
             <Button 
-              variant="outline" 
-              size="sm" 
+              className="flex items-center gap-2" 
               onClick={exportToCSV}
-              disabled={tableData.length === 0}
-              className="flex items-center gap-1 bg-white hover:bg-slate-50 text-slate-700 border-slate-200"
+              variant="outline"
             >
-              <Download className="h-4 w-4" />
-              <span>Export</span>
+              <Download size={16} />
+              Export
             </Button>
             <Button 
-              size="sm" 
+              className="flex items-center gap-2" 
               onClick={onViewDashboard}
-              className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700"
             >
-              <BarChart className="h-4 w-4" />
-              <span>View Dashboard</span>
+              <BarChart size={16} />
+              View Dashboard
             </Button>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        {/* Filters Section */}
-        <div className="p-4 border-b bg-white">
-          <div className="flex flex-col md:flex-row gap-4 items-start justify-between">
+        </CardHeader>
+
+        <CardContent>
+          {/* Filters Section */}
+          <div className="flex flex-col md:flex-row gap-4 mb-6 justify-center">
             {/* Search */}
-            <div className="relative w-full md:w-64">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+            <div className="relative flex-grow max-w-md">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
               <Input
-                type="search"
-                placeholder="Search records..."
-                className="pl-9 bg-white rounded-md border-slate-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                placeholder="Search transactions..."
+                className="pl-8 bg-white text-center"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            
+
             {/* Date Filters */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-slate-500">Start Date</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-36 justify-start text-left bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                    >
-                      <Calendar className="mr-2 h-4 w-4 text-slate-500" />
+            <div className="flex flex-wrap gap-2 justify-center">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2 bg-white">
+                    <Calendar size={16} />
+                    Start Date
+                    <span className="font-normal">
                       {dateRange.startDate ? format(dateRange.startDate, 'MMM d, yyyy') : 'Select date'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={dateRange.startDate || undefined}
-                      onSelect={(date) => setDateRange({ ...dateRange, startDate: date })}
-                      className="rounded-md border border-slate-200"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-slate-500">End Date</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-36 justify-start text-left bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                    >
-                      <Calendar className="mr-2 h-4 w-4 text-slate-500" />
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent>
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateRange.startDate || undefined}
+                    onSelect={(date) => setDateRange({ ...dateRange, startDate: date })}
+                    className="rounded-md border border-slate-200"
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2 bg-white">
+                    <Calendar size={16} />
+                    End Date
+                    <span className="font-normal">
                       {dateRange.endDate ? format(dateRange.endDate, 'MMM d, yyyy') : 'Select date'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={dateRange.endDate || undefined}
-                      onSelect={(date) => setDateRange({ ...dateRange, endDate: date })}
-                      className="rounded-md border border-slate-200"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent>
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateRange.endDate || undefined}
+                    onSelect={(date) => setDateRange({ ...dateRange, endDate: date })}
+                    className="rounded-md border border-slate-200"
+                  />
+                </PopoverContent>
+              </Popover>
+
               {(dateRange.startDate || dateRange.endDate) && (
                 <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={clearDateFilters} 
-                  className="self-end text-slate-600 hover:text-slate-800"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearDateFilters}
+                  className="text-slate-600"
                 >
                   Clear dates
                 </Button>
               )}
-            </div>
-            
-            {/* Date Sort Controls */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-500">Sort by Date:</span>
-              <div className="flex">
-                <Button
-                  variant={sortConfig.key === 'created_at' && sortConfig.direction === 'ascending' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSortConfig({ key: 'created_at', direction: 'ascending' })}
-                  className={`flex items-center gap-1 rounded-r-none border-r-0 ${
-                    sortConfig.key === 'created_at' && sortConfig.direction === 'ascending'
-                      ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <ChevronUp className="h-3 w-3" />
-                  Oldest
-                </Button>
-                <Button
-                  variant={sortConfig.key === 'created_at' && sortConfig.direction === 'descending' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSortConfig({ key: 'created_at', direction: 'descending' })}
-                  className={`flex items-center gap-1 rounded-l-none ${
-                    sortConfig.key === 'created_at' && sortConfig.direction === 'descending'
-                      ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <ChevronDown className="h-3 w-3" />
-                  Newest
-                </Button>
+
+              {/* Date Sort Controls */}
+              <div className="flex ml-auto items-center gap-2 justify-center">
+                <span className="text-sm text-slate-600 mr-1">Sort by Date:</span>
+                <div className="flex">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSortConfig({ key: 'created_at', direction: 'ascending' })}
+                    className={`flex items-center gap-1 rounded-r-none border-r-0 ${
+                      sortConfig.key === 'created_at' && sortConfig.direction === 'ascending'
+                        ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <ChevronUp size={14} />
+                    Oldest
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSortConfig({ key: 'created_at', direction: 'descending' })}
+                    className={`flex items-center gap-1 rounded-l-none ${
+                      sortConfig.key === 'created_at' && sortConfig.direction === 'descending'
+                        ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <ChevronDown size={14} />
+                    Newest
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="overflow-auto">
-          <Table>
-            <TableHeader className="bg-slate-50 sticky top-0">
-              <TableRow className="hover:bg-slate-100 border-0">
-                {columns.map((column) => (
-                  <TableHead 
-                    key={column} 
-                    className={`whitespace-nowrap py-3 px-4 text-slate-700 font-semibold text-sm ${
-                      column === 'amount' ? 'text-right' : ''
-                    }`}
-                  >
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={`flex items-center gap-1 font-medium ${
-                        sortConfig?.key === column ? 'text-indigo-700' : 'text-slate-700'
-                      } hover:text-indigo-800 p-0`}
-                      onClick={() => requestSort(column)}
-                    >
-                      {formatColumnName(column)}
-                      {sortConfig?.key === column && (
-                        <ArrowUpDown className={`h-3.5 w-3.5 ml-1 transition-transform duration-200 ${
-                          sortConfig?.direction === 'ascending' ? 'rotate-180' : ''
-                        }`} />
-                      )}
-                    </Button>
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedData.length > 0 ? (
-                sortedData.map((row: any, index: number) => (
-                  <TableRow 
-                    key={index} 
-                    className={`border-b hover:bg-slate-50 transition-colors duration-150 ${
-                      index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
-                    } ${activeRow === index ? 'bg-indigo-50/50' : ''} ${
-                      showAnimation ? 'animate-fadeIn' : ''
-                    }`}
-                    onMouseEnter={() => setActiveRow(index)}
-                    onMouseLeave={() => setActiveRow(null)}
-                  >
-                    {columns.map((column) => (
-                      <TableCell 
-                        key={`${index}-${column}`} 
-                        className={`py-3 px-4 ${
-                          column === 'created_at' ? 'font-medium text-slate-800' : ''
-                        } ${column === 'amount' ? 'text-right' : ''}`}
-                      >
-                        {formatCellValue(row[column], column, index)}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="h-40 text-center">
-                    <div className="flex flex-col items-center justify-center text-slate-500">
-                      <Search className="h-8 w-8 mb-2 text-slate-300" />
-                      <p className="text-base font-medium">
-                        {searchTerm || dateRange.startDate || dateRange.endDate 
-                          ? 'No results found for your search or date filter' 
-                          : 'No data available'}
-                      </p>
-                      <p className="text-sm text-slate-400 mt-1">
-                        {searchTerm || dateRange.startDate || dateRange.endDate 
-                          ? 'Try adjusting your filters or search terms' 
-                          : 'Add some data to get started'}
-                      </p>
-                    </div>
-                  </TableCell>
+                  {columns.map((column) => (
+                    <TableHead key={column} onClick={() => requestSort(column)} className="cursor-pointer hover:bg-slate-50 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        {formatColumnName(column)}
+                        {sortConfig?.key === column && (
+                          sortConfig.direction === 'ascending' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                        )}
+                      </div>
+                    </TableHead>
+                  ))}
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-      <style jsx>{`
-        @keyframes fadeIn {
-          from { opacity: 0.7; }
-          to { opacity: 1; }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-in-out;
-        }
-      `}</style>
-    </Card>
+              </TableHeader>
+              <TableBody>
+                {sortedData.length > 0 ? (
+                  sortedData.map((row: any, index: number) => (
+                    <TableRow 
+                      key={index} 
+                      className={`${activeRow === index ? 'bg-slate-50' : ''} transition-colors ${showAnimation ? 'animate-fade-in' : ''}`}
+                      onMouseEnter={() => setActiveRow(index)}
+                      onMouseLeave={() => setActiveRow(null)}
+                    >
+                      {columns.map((column) => (
+                        <TableCell key={column} className="text-center">
+                          {formatCellValue(row[column], column, index)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-32 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Activity size={32} className="text-slate-300" />
+                        <h3 className="font-medium text-slate-600 text-lg text-center">
+                          {searchTerm || dateRange.startDate || dateRange.endDate
+                            ? 'No results found for your search or date filter'
+                            : 'No data available'}
+                        </h3>
+                        <p className="text-slate-500 text-center">
+                          {searchTerm || dateRange.startDate || dateRange.endDate
+                            ? 'Try adjusting your filters or search terms'
+                            : 'Add some data to get started'}
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
