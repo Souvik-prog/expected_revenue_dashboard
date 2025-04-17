@@ -1,10 +1,9 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  ComposedChart, Line, Legend
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import { ArrowLeft, Calendar, RefreshCw, DollarSign, Users, TrendingUp, Check, Clock, BarChart2 } from 'lucide-react';
+import { ArrowLeft, Calendar, RefreshCw, DollarSign, Users, TrendingUp, Check, Clock } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -20,9 +19,9 @@ import {
 } from './DashboardLogic';
 
 interface DashboardProps {
-  data: any[]; // The result array from getData
-  schema: any; // Schema of the table
-  onBack: () => void; // Callback to switch back to DataTable view
+  data: any[];
+  schema: any;
+  onBack: () => void;
 }
 
 // Custom tooltip component for enhanced styling
@@ -102,12 +101,13 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
     setDateRange,
     lastUpdated,
     displayDateRange,
-    combinedRevenueData,
+    chart1Data, // Expected vs New Sales vs Retained
+    chart2Data, // Expected vs Retained
     totalExpectedRevenue,
-    totalActualRevenue,
-    customersByDate,
-    actualCustomersByDate,
+    expectedCustomersSegregated, // Modified to segregated expected customers
+    newSalesCustomers, // New sales customers with revenue
     revenueMetrics,
+    totalRevenue, // Added totalRevenue
     handleDatePreset
   } = useDashboardData(data, schema);
 
@@ -127,7 +127,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
             Back
           </Button>
           <h1 className="text-xl font-semibold text-gray-800">
-            Expected Revenue vs Days in Advance
+            Revenue Dashboard
           </h1>
         </div>
         <div className="flex items-center gap-1 text-sm text-gray-500">
@@ -265,12 +265,11 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
         </CardContent>
       </Card>
 
-      {/* Daily Charts Section - MOVED BEFORE KPI CARDS */}
-      {/* Expected vs Actual Revenue Chart - CONVERTED TO BAR CHART AND ENHANCED */}
+      {/* CHART 1: Expected Revenue vs New Sales vs Retained Revenue */}
       <Card className="mb-6 shadow-lg border-0 overflow-hidden bg-gradient-to-b from-white to-gray-50">
         <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 pb-3">
           <div>
-            <CardTitle className="text-lg font-semibold">Daily Revenue: Expected vs Actual</CardTitle>
+            <CardTitle className="text-lg font-semibold">Expected Revenue vs New Sales vs Retained Revenue</CardTitle>
             <CardDescription className="text-sm text-gray-500">
               Updated {format(new Date(), "MMM d, yyyy")}
             </CardDescription>
@@ -280,7 +279,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={combinedRevenueData}
+                data={chart1Data}
                 margin={{ top: 20, right: 30, left: 10, bottom: 20 }}
                 barGap={5}
                 barCategoryGap="20%"
@@ -288,12 +287,16 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
               >
                 <defs>
                   <linearGradient id="expectedRevenueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={COLORS.chartExpectedGradient[0]} stopOpacity={1} />
-                    <stop offset="100%" stopColor={COLORS.chartExpectedGradient[1]} stopOpacity={0.8} />
+                    <stop offset="0%" stopColor="#f97316" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#fb923c" stopOpacity={0.8} />
                   </linearGradient>
-                  <linearGradient id="actualRevenueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={COLORS.chartActualGradient[0]} stopOpacity={1} />
-                    <stop offset="100%" stopColor={COLORS.chartActualGradient[1]} stopOpacity={0.8} />
+                  <linearGradient id="newSalesGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.8} />
+                  </linearGradient>
+                  <linearGradient id="retainedRevenueGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#34d399" stopOpacity={0.8} />
                   </linearGradient>
                   <filter id="shadow" height="200%">
                     <feDropShadow dx="0" dy="4" stdDeviation="8" floodColor="rgba(0, 0, 0, 0.2)" />
@@ -337,7 +340,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
                   dataKey="expectedRevenue" 
                   name="Expected Revenue" 
                   fill="url(#expectedRevenueGradient)" 
-                  barSize={28}
+                  barSize={24}
                   radius={[4, 4, 0, 0]}
                   animationDuration={1500}
                   animationEasing="ease-in-out"
@@ -345,10 +348,21 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
                   strokeWidth={0}
                 />
                 <Bar 
-                  dataKey="actualRevenue" 
-                  name="Actual Revenue" 
-                  fill="url(#actualRevenueGradient)"
-                  barSize={28}
+                  dataKey="newSales" 
+                  name="New Sales" 
+                  fill="url(#newSalesGradient)"
+                  barSize={24}
+                  radius={[4, 4, 0, 0]}
+                  animationDuration={1500}
+                  animationEasing="ease-in-out"
+                  filter="url(#shadow)"
+                  strokeWidth={0}
+                />
+                <Bar 
+                  dataKey="retainedRevenue" 
+                  name="Retained Revenue" 
+                  fill="url(#retainedRevenueGradient)"
+                  barSize={24}
                   radius={[4, 4, 0, 0]}
                   animationDuration={1500}
                   animationEasing="ease-in-out"
@@ -361,11 +375,11 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
         </CardContent>
       </Card>
 
-      {/* NEW: Revenue Metrics Chart (Retained, Lost, New) - CONVERTED TO BAR CHART AND ENHANCED */}
+      {/* CHART 2: Expected Revenue vs Retained Revenue */}
       <Card className="mb-6 shadow-lg border-0 overflow-hidden bg-gradient-to-b from-white to-gray-50">
         <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 pb-3">
           <div>
-            <CardTitle className="text-lg font-semibold">Revenue Retention and Analysis</CardTitle>
+            <CardTitle className="text-lg font-semibold">Expected Revenue vs Retained Revenue</CardTitle>
             <CardDescription className="text-sm text-gray-500">
               Updated {format(new Date(), "MMM d, yyyy")}
             </CardDescription>
@@ -375,24 +389,20 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={revenueMetrics.byDay}
+                data={chart2Data}
                 margin={{ top: 20, right: 30, left: 10, bottom: 20 }}
                 barGap={5}
-                barCategoryGap="10%"
+                barCategoryGap="20%"
                 className="drop-shadow-xl"
               >
                 <defs>
-                  <linearGradient id="retainedRevenueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={COLORS.successGradient[0]} stopOpacity={1} />
-                    <stop offset="100%" stopColor={COLORS.successGradient[1]} stopOpacity={0.8} />
+                  <linearGradient id="expectedRevenueGradient2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f97316" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#fb923c" stopOpacity={0.8} />
                   </linearGradient>
-                  <linearGradient id="lostRevenueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={COLORS.dangerGradient[0]} stopOpacity={1} />
-                    <stop offset="100%" stopColor={COLORS.dangerGradient[1]} stopOpacity={0.8} />
-                  </linearGradient>
-                  <linearGradient id="newSalesGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={COLORS.primaryGradient[0]} stopOpacity={1} />
-                    <stop offset="100%" stopColor={COLORS.primaryGradient[1]} stopOpacity={0.8} />
+                  <linearGradient id="retainedRevenueGradient2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#34d399" stopOpacity={0.8} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid 
@@ -430,37 +440,23 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
                   iconSize={10}
                 />
                 <Bar 
+                  dataKey="expectedRevenue" 
+                  name="Expected Revenue" 
+                  fill="url(#expectedRevenueGradient2)" 
+                  barSize={32}
+                  radius={[4, 4, 0, 0]}
+                  animationDuration={1500}
+                  animationEasing="ease-in-out"
+                  filter="url(#shadow)"
+                  strokeWidth={0}
+                />
+                <Bar 
                   dataKey="retainedRevenue" 
                   name="Retained Revenue" 
-                  fill="url(#retainedRevenueGradient)"
-                  barSize={20}
+                  fill="url(#retainedRevenueGradient2)"
+                  barSize={32}
                   radius={[4, 4, 0, 0]}
                   animationDuration={1500}
-                  animationBegin={0}
-                  animationEasing="ease-in-out"
-                  filter="url(#shadow)"
-                  strokeWidth={0}
-                />
-                <Bar 
-                  dataKey="lostRevenue" 
-                  name="Lost Revenue" 
-                  fill="url(#lostRevenueGradient)"
-                  barSize={20}
-                  radius={[4, 4, 0, 0]}
-                  animationDuration={1500}
-                  animationBegin={200}
-                  animationEasing="ease-in-out"
-                  filter="url(#shadow)"
-                  strokeWidth={0}
-                />
-                <Bar 
-                  dataKey="newSales" 
-                  name="New Sales" 
-                  fill="url(#newSalesGradient)"
-                  barSize={20}
-                  radius={[4, 4, 0, 0]}
-                  animationDuration={1500}
-                  animationBegin={400}
                   animationEasing="ease-in-out"
                   filter="url(#shadow)"
                   strokeWidth={0}
@@ -471,43 +467,43 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
         </CardContent>
       </Card>
 
-      {/* KPI Cards - MOVED AFTER DAILY CHARTS AND ENHANCED */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {/* Expected Revenue KPI Card */}
-        <Card className="shadow-md border-0 hover:shadow-lg transition-shadow bg-gradient-to-br from-indigo-50 to-white">
+      {/* KPI Cards Section - MOVED BELOW THE CHARTS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        {/* Total Revenue KPI Card - NEWLY ADDED */}
+        <Card className="shadow-md border-0 hover:shadow-lg transition-shadow bg-gradient-to-br from-purple-50 to-white">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <div className="rounded-full bg-indigo-100 p-1.5">
-                <DollarSign size={18} className="text-indigo-600" />
+              <div className="rounded-full bg-purple-100 p-1.5">
+                <DollarSign size={18} className="text-purple-600" />
+              </div>
+              Total Revenue
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <span className="text-3xl font-bold text-purple-700">
+              ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            </span>
+          </CardContent>
+        </Card>
+        
+        {/* Expected Revenue KPI Card */}
+        <Card className="shadow-md border-0 hover:shadow-lg transition-shadow bg-gradient-to-br from-orange-50 to-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <div className="rounded-full bg-orange-100 p-1.5">
+                <DollarSign size={18} className="text-orange-600" />
               </div>
               Expected Revenue
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <span className="text-3xl font-bold text-indigo-700">
+            <span className="text-3xl font-bold text-orange-700">
               ${totalExpectedRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
             </span>
           </CardContent>
         </Card>
 
-        {/* Actual Revenue KPI Card */}
-        <Card className="shadow-md border-0 hover:shadow-lg transition-shadow bg-gradient-to-br from-emerald-50 to-white">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <div className="rounded-full bg-emerald-100 p-1.5">
-                <DollarSign size={18} className="text-emerald-600" />
-              </div>
-              Actual Revenue
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="text-3xl font-bold text-emerald-700">
-              ${totalActualRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-            </span>
-          </CardContent>
-        </Card>
-
-        {/* NEW: Retained Revenue KPI Card */}
+        {/* Retained Revenue KPI Card */}
         <Card className="shadow-md border-0 hover:shadow-lg transition-shadow bg-gradient-to-br from-green-50 to-white">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -524,194 +520,183 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
           </CardContent>
         </Card>
 
-        {/* NEW: Lost Revenue and New Sales KPI Card */}
+        {/* New Sales KPI Card */}
         <Card className="shadow-md border-0 hover:shadow-lg transition-shadow bg-gradient-to-br from-blue-50 to-white">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <div className="rounded-full bg-blue-100 p-1.5">
                 <TrendingUp size={18} className="text-blue-600" />
               </div>
-              New & Lost Revenue
+              New Sales
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                <span className="font-medium text-red-600">Lost:</span>
-              </span>
-              <span className="text-lg font-semibold text-red-700">
-                ${revenueMetrics.totals.lostRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                <span className="font-medium text-blue-600">New:</span>
-              </span>
-              <span className="text-lg font-semibold text-blue-700">
-                ${revenueMetrics.totals.newSales.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-              </span>
-            </div>
+          <CardContent>
+            <span className="text-3xl font-bold text-blue-700">
+              ${revenueMetrics.totals.newSales.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            </span>
+          </CardContent>
+        </Card>
+
+        {/* Lost Revenue KPI Card */}
+        <Card className="shadow-md border-0 hover:shadow-lg transition-shadow bg-gradient-to-br from-red-50 to-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <div className="rounded-full bg-red-100 p-1.5">
+                <DollarSign size={18} className="text-red-600" />
+              </div>
+              Lost Revenue
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <span className="text-3xl font-bold text-red-700">
+              ${revenueMetrics.totals.lostRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            </span>
           </CardContent>
         </Card>
       </div>
 
-      {/* List of Customers By Date - Combined Expected and Actual - ENHANCED */}
-      <Card className="shadow-lg border-0 overflow-hidden bg-gradient-to-b from-white to-gray-50">
-        <CardHeader className="border-b border-gray-100">
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <Users size={18} className="text-gray-700" />
-            Customer Payment Activity - Daywise List
-          </CardTitle>
-          <CardDescription className="text-sm text-gray-500">
-            Customers expected to pay and actual payments in the selected date range
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {customersByDate.length > 0 || actualCustomersByDate.length > 0 ? (
-            <div className="space-y-0.5 p-4">
-              {/* Create a combined list of all dates */}
-              {(() => {
-                // Create a map of all dates from both expected and actual
-                const allDatesMap = new Map();
-
-                // Add expected dates
-                customersByDate.forEach(dateGroup => {
-                  allDatesMap.set(dateGroup.date, {
-                    date: dateGroup.date,
-                    expected: dateGroup.customers,
-                    actual: []
-                  });
-                });
-
-                // Add actual dates or merge with existing
-                actualCustomersByDate.forEach(dateGroup => {
-                  if (allDatesMap.has(dateGroup.date)) {
-                    const existing = allDatesMap.get(dateGroup.date);
-                    existing.actual = dateGroup.customers;
-                  } else {
-                    allDatesMap.set(dateGroup.date, {
-                      date: dateGroup.date,
-                      expected: [],
-                      actual: dateGroup.customers
-                    });
-                  }
-                });
-
-                // Convert map to array and sort by date
-                return Array.from(allDatesMap.values())
-                  .sort((a, b) => a.date.localeCompare(b.date))
-                  .map(dateGroup => (
-                    <div key={dateGroup.date} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow mb-4 bg-white">
-                      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                        <h3 className="font-medium text-gray-700 flex items-center gap-2">
-                          <Calendar size={16} className="text-indigo-500" />
-                          {format(new Date(dateGroup.date), "MMMM d, yyyy")}
-                        </h3>
-                        <div className="flex gap-4">
-                          {dateGroup.expected.length > 0 && (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                              {dateGroup.expected.length} expected
-                            </span>
-                          )}
-                          {dateGroup.actual.length > 0 && (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                              {dateGroup.actual.length} paid
-                            </span>
-                          )}
+      {/* Customer Lists - Segregated into Expected and New Sales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* Expected Customers (Segregated as actual and paid) */}
+        <Card className="shadow-lg border-0 overflow-hidden bg-gradient-to-b from-white to-gray-50">
+          <CardHeader className="border-b border-gray-100">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Users size={18} className="text-gray-700" />
+              Expected Customers
+            </CardTitle>
+            <CardDescription className="text-sm text-gray-500">
+              Customers expected from previous month
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-4 max-h-[600px] overflow-y-auto">
+            {/* Not Paid (Actual) Customers */}
+            <div className="mb-6">
+              <h3 className="font-medium text-gray-700 mb-3 flex items-center gap-2 text-sm">
+                <Clock size={16} className="text-blue-500" />
+                Expected (Not Paid)
+              </h3>
+              
+              {expectedCustomersSegregated.actual.length > 0 ? (
+                <div className="space-y-2">
+                  {expectedCustomersSegregated.actual.map((customer, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-2 px-3 bg-blue-50 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-medium shadow-sm">
+                          {customer.email.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-medium text-blue-900">{customer.email}</div>
+                          <div className="text-xs text-blue-700">ID: {customer.id}</div>
+                          <div className="text-xs text-blue-700 mt-1">
+                            <span className="font-medium">Expected Payment: </span>
+                            {customer.expectedDate || "N/A"}
+                          </div>
                         </div>
                       </div>
-
-                      {/* Grid layout for expected and actual columns */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200">
-                        {/* Expected Customers */}
-                        <div className="p-4">
-                          <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
-                            <Clock size={16} className="text-blue-500" />
-                            Expected Payments
-                          </h4>
-                          {dateGroup.expected.length > 0 ? (
-                            <div className="space-y-2">
-                              {dateGroup.expected.map((customer, idx) => (
-                                <div key={idx} className="flex items-center justify-between py-2 px-3 bg-blue-50 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors">
-                                  <div className="flex items-center space-x-3">
-                                    <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-medium shadow-sm">
-                                      {customer.email.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                      <div className="font-medium text-blue-900">{customer.email}</div>
-                                      <div className="text-xs text-blue-700">ID: {customer.id}</div>
-                                    </div>
-                                  </div>
-                                  <div className="font-semibold text-blue-900 bg-white py-1 px-2 rounded-md shadow-sm border border-blue-100">
-                                    ${customer.amount.toFixed(2)}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-100">
-                              <Clock size={24} className="mx-auto text-gray-300 mb-2" />
-                              None expected
-                            </div>
-                          )}
+                      <div className="font-semibold text-blue-900 bg-white py-1 px-2 rounded-md shadow-sm border border-blue-100">
+                        ${customer.amount.toFixed(2)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg border border-gray-100">
+                  <p>No expected customers pending payment</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Paid Customers */}
+            <div>
+              <h3 className="font-medium text-gray-700 mb-3 flex items-center gap-2 text-sm">
+                <Check size={16} className="text-green-500" />
+                Expected (Paid)
+              </h3>
+              
+              {expectedCustomersSegregated.paid.length > 0 ? (
+                <div className="space-y-2">
+                  {expectedCustomersSegregated.paid.map((customer, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-2 px-3 bg-green-50 rounded-lg border border-green-100 hover:bg-green-100 transition-colors">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-medium shadow-sm">
+                          {customer.email.charAt(0).toUpperCase()}
                         </div>
-
-                        {/* Actual Customers */}
-                        <div className="p-4">
-                          <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
-                            <Check size={16} className="text-green-500" />
-                            Actual Payments
-                          </h4>
-                          {dateGroup.actual.length > 0 ? (
-                            <div className="space-y-2">
-                              {dateGroup.actual.map((customer, idx) => (
-                                <div key={idx} className="flex items-center justify-between py-2 px-3 bg-green-50 rounded-lg border border-green-100 hover:bg-green-100 transition-colors">
-                                  <div className="flex items-center space-x-3">
-                                    <div className="w-8 h-8 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-medium shadow-sm">
-                                      {customer.email.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                      <div className="font-medium text-green-900">{customer.email}</div>
-                                      <div className="text-xs text-green-700">ID: {customer.id}</div>
-                                    </div>
-                                  </div>
-                                  <div className="font-semibold text-green-900 bg-white py-1 px-2 rounded-md shadow-sm border border-green-100">
-                                    ${customer.amount.toFixed(2)}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-100">
-                              <DollarSign size={24} className="mx-auto text-gray-300 mb-2" />
-                              None paid
-                            </div>
-                          )}
+                        <div>
+                          <div className="font-medium text-green-900">{customer.email}</div>
+                          <div className="text-xs text-green-700">ID: {customer.id}</div>
+                          <div className="text-xs text-green-700 mt-1">
+                            <span className="font-medium">Expected Payment: </span>
+                            {customer.expectedDate || "N/A"}
+                          </div>
+                          <div className="text-xs text-green-700">
+                            <span className="font-medium">Payment Date: </span>
+                            {customer.paymentDate || "N/A"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <div className="font-semibold text-green-900 bg-white py-1 px-2 rounded-md shadow-sm border border-green-100">
+                          ${customer.paidAmount.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-green-700 mt-1">
+                          Expected: ${customer.amount.toFixed(2)}
                         </div>
                       </div>
                     </div>
-                  ));
-              })()}
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg border border-gray-100">
+                  <p>No expected customers have paid</p>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="text-center py-10">
-              <BarChart2 size={48} className="mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-700 mb-1">No customer payment activity in selected date range</h3>
-              <p className="text-gray-500">Try selecting a different date range</p>
-            </div>
-          )}
-
-          {!(dateRange.startDate && dateRange.endDate) && (
-            <div className="text-center py-10">
-              <Calendar size={48} className="mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-700 mb-1">Choose a date range</h3>
-              <p className="text-gray-500">Choose a start and end date above to view customer activity</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+        
+        {/* New Sales Customers */}
+        <Card className="shadow-lg border-0 overflow-hidden bg-gradient-to-b from-white to-gray-50">
+          <CardHeader className="border-b border-gray-100">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <TrendingUp size={18} className="text-blue-600" />
+              New Sales Customers
+            </CardTitle>
+            <CardDescription className="text-sm text-gray-500">
+              Customers who weren't in the previous month
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-4 max-h-[600px] overflow-y-auto">
+            {newSalesCustomers.length > 0 ? (
+              <div className="space-y-2">
+                {newSalesCustomers.map((customer, idx) => (
+                  <div key={idx} className="flex items-center justify-between py-2 px-3 bg-indigo-50 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-full bg-indigo-200 flex items-center justify-center text-indigo-700 font-medium shadow-sm">
+                        {customer.email.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-medium text-indigo-900">{customer.email}</div>
+                        <div className="text-xs text-indigo-700">ID: {customer.id}</div>
+                        <div className="text-xs text-indigo-700 mt-1">
+                          <span className="font-medium">Payment Date: </span>
+                          {customer.paymentDate || "N/A"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="font-semibold text-indigo-900 bg-white py-1 px-2 rounded-md shadow-sm border border-indigo-100">
+                      ${customer.amount.toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg border border-gray-100">
+                <p>No new sales customers in the selected period</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
