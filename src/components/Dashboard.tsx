@@ -3,7 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import { ArrowLeft, Calendar, RefreshCw, DollarSign, Users, TrendingUp, Check, Clock } from 'lucide-react';
+import { 
+  ArrowLeft, Calendar, RefreshCw, DollarSign, Users, TrendingUp, 
+  Check, Clock, ChevronDown, ChevronRight, Calendar as CalendarIcon 
+} from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -104,8 +107,10 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
     chart1Data, // Expected vs New Sales vs Retained
     chart2Data, // Expected vs Retained
     totalExpectedRevenue,
-    expectedCustomersSegregated, // Modified to segregated expected customers
+    expectedCustomersSegregated, // Original segregated lists
+    groupedExpectedCustomers, // New grouped customers by date
     newSalesCustomers, // New sales customers with revenue
+    lostRevenueCustomers, // Added lost revenue customers list
     revenueMetrics,
     totalRevenue, // Added totalRevenue
     handleDatePreset
@@ -467,9 +472,9 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
         </CardContent>
       </Card>
 
-      {/* KPI Cards Section - MOVED BELOW THE CHARTS */}
+      {/* KPI Cards Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        {/* Total Revenue KPI Card - NEWLY ADDED */}
+        {/* Total Revenue KPI Card */}
         <Card className="shadow-md border-0 hover:shadow-lg transition-shadow bg-gradient-to-br from-purple-50 to-white">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -555,9 +560,9 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
         </Card>
       </div>
 
-      {/* Customer Lists - Segregated into Expected and New Sales */}
+      {/* Customer Lists Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        {/* Expected Customers (Segregated as actual and paid) */}
+        {/* Expected Customers (Grouped by date) - MODIFIED */}
         <Card className="shadow-lg border-0 overflow-hidden bg-gradient-to-b from-white to-gray-50">
           <CardHeader className="border-b border-gray-100">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -565,92 +570,90 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
               Expected Customers
             </CardTitle>
             <CardDescription className="text-sm text-gray-500">
-              Customers expected from previous month
+              Customers expected from previous month (grouped by date in descending order)
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 max-h-[600px] overflow-y-auto">
-            {/* Not Paid (Actual) Customers */}
-            <div className="mb-6">
-              <h3 className="font-medium text-gray-700 mb-3 flex items-center gap-2 text-sm">
-                <Clock size={16} className="text-blue-500" />
-                Expected (Not Paid)
-              </h3>
-              
-              {expectedCustomersSegregated.actual.length > 0 ? (
-                <div className="space-y-2">
-                  {expectedCustomersSegregated.actual.map((customer, idx) => (
-                    <div key={idx} className="flex items-center justify-between py-2 px-3 bg-blue-50 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-medium shadow-sm">
-                          {customer.email.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="font-medium text-blue-900">{customer.email}</div>
-                          <div className="text-xs text-blue-700">ID: {customer.id}</div>
-                          <div className="text-xs text-blue-700 mt-1">
-                            <span className="font-medium">Expected Payment: </span>
-                            {customer.expectedDate || "N/A"}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="font-semibold text-blue-900 bg-white py-1 px-2 rounded-md shadow-sm border border-blue-100">
-                        ${customer.amount.toFixed(2)}
+            {Object.keys(groupedExpectedCustomers).length > 0 ? (
+              <div className="space-y-6">
+                {Object.entries(groupedExpectedCustomers).map(([date, customers]) => (
+                  <div key={date} className="border border-gray-100 rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 border-b border-gray-100 px-4 py-3 flex items-center">
+                      <CalendarIcon size={16} className="text-gray-600 mr-2" />
+                      <span className="font-semibold text-gray-800">{date}</span>
+                      <div className="ml-auto flex space-x-2">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                          {customers.filter(c => c.status === 'actual').length} Pending
+                        </span>
+                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                          {customers.filter(c => c.status === 'paid').length} Paid
+                        </span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg border border-gray-100">
-                  <p>No expected customers pending payment</p>
-                </div>
-              )}
-            </div>
-            
-            {/* Paid Customers */}
-            <div>
-              <h3 className="font-medium text-gray-700 mb-3 flex items-center gap-2 text-sm">
-                <Check size={16} className="text-green-500" />
-                Expected (Paid)
-              </h3>
-              
-              {expectedCustomersSegregated.paid.length > 0 ? (
-                <div className="space-y-2">
-                  {expectedCustomersSegregated.paid.map((customer, idx) => (
-                    <div key={idx} className="flex items-center justify-between py-2 px-3 bg-green-50 rounded-lg border border-green-100 hover:bg-green-100 transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-medium shadow-sm">
-                          {customer.email.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="font-medium text-green-900">{customer.email}</div>
-                          <div className="text-xs text-green-700">ID: {customer.id}</div>
-                          <div className="text-xs text-green-700 mt-1">
-                            <span className="font-medium">Expected Payment: </span>
-                            {customer.expectedDate || "N/A"}
+                    <div className="divide-y divide-gray-100">
+                      {customers.map((customer, idx) => (
+                        <div 
+                          key={`${customer.id}-${idx}`} 
+                          className={`flex items-center justify-between p-3 ${
+                            customer.status === 'actual' 
+                              ? 'bg-blue-50 hover:bg-blue-100' 
+                              : 'bg-green-50 hover:bg-green-100'
+                          } transition-colors`}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-medium shadow-sm ${
+                              customer.status === 'actual'
+                                ? 'bg-blue-200 text-blue-700'
+                                : 'bg-green-200 text-green-700'
+                            }`}>
+                              {customer.email.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className={`font-medium ${
+                                customer.status === 'actual' ? 'text-blue-900' : 'text-green-900'
+                              }`}>
+                                {customer.email}
+                              </div>
+                              <div className={`text-xs ${
+                                customer.status === 'actual' ? 'text-blue-700' : 'text-green-700'
+                              }`}>
+                                ID: {customer.id}
+                              </div>
+                              {customer.status === 'paid' && customer.paymentDate && (
+                                <div className="text-xs text-green-700">
+                                  <span className="font-medium">Payment Date: </span>
+                                  {customer.paymentDate}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-xs text-green-700">
-                            <span className="font-medium">Payment Date: </span>
-                            {customer.paymentDate || "N/A"}
+                          <div className="flex flex-col items-end">
+                            <div className={`font-semibold py-1 px-2 rounded-md shadow-sm ${
+                              customer.status === 'actual'
+                                ? 'text-blue-900 bg-white border border-blue-100'
+                                : 'text-green-900 bg-white border border-green-100'
+                            }`}>
+                              ${customer.status === 'actual' 
+                                ? customer.amount.toFixed(2) 
+                                : (customer.paidAmount || 0).toFixed(2)}
+                            </div>
+                            {customer.status === 'paid' && (
+                              <div className="text-xs text-green-700 mt-1">
+                                Expected: ${customer.amount.toFixed(2)}
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <div className="font-semibold text-green-900 bg-white py-1 px-2 rounded-md shadow-sm border border-green-100">
-                          ${customer.paidAmount.toFixed(2)}
-                        </div>
-                        <div className="text-xs text-green-700 mt-1">
-                          Expected: ${customer.amount.toFixed(2)}
-                        </div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg border border-gray-100">
-                  <p>No expected customers have paid</p>
-                </div>
-              )}
-            </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg border border-gray-100">
+                <p>No expected customers in the selected period</p>
+              </div>
+            )}
           </CardContent>
         </Card>
         
@@ -692,6 +695,49 @@ const Dashboard: React.FC<DashboardProps> = ({ data, schema, onBack }) => {
             ) : (
               <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg border border-gray-100">
                 <p>No new sales customers in the selected period</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        
+        {/* Lost Revenue Customers */}
+        <Card className="shadow-lg border-0 overflow-hidden bg-gradient-to-b from-white to-gray-50">
+          <CardHeader className="border-b border-gray-100">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <DollarSign size={18} className="text-red-600" />
+              Lost Revenue Customers
+            </CardTitle>
+            <CardDescription className="text-sm text-gray-500">
+              Customers from last month who did not make a payment this month (sorted by amount)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-4 max-h-[600px] overflow-y-auto">
+            {lostRevenueCustomers.length > 0 ? (
+              <div className="space-y-2">
+                {lostRevenueCustomers.map((customer, idx) => (
+                  <div key={idx} className="flex items-center justify-between py-2 px-3 bg-red-50 rounded-lg border border-red-100 hover:bg-red-100 transition-colors">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-full bg-red-200 flex items-center justify-center text-red-700 font-medium shadow-sm">
+                        {customer.email.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-medium text-red-900">{customer.email}</div>
+                        <div className="text-xs text-red-700">ID: {customer.id}</div>
+                        <div className="text-xs text-red-700 mt-1">
+                          <span className="font-medium">Expected Payment: </span>
+                          {customer.expectedDate || "N/A"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="font-semibold text-red-900 bg-white py-1 px-2 rounded-md shadow-sm border border-red-100">
+                      ${customer.amount.toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg border border-gray-100">
+                <p>No lost revenue customers in the selected period</p>
               </div>
             )}
           </CardContent>

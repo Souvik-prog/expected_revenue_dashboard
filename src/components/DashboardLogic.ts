@@ -28,6 +28,7 @@ interface CustomerData {
   // Added date fields
   expectedDate?: string;
   paymentDate?: string;
+  status?: 'actual' | 'paid'; // Added status field for grouped display
 }
 
 // Enhanced luxury color palette with gradient definitions
@@ -174,6 +175,25 @@ export const formatDate = (value: string) => {
 
 export const formatFullDate = (value: string) => {
   return format(new Date(value), "MMMM d, yyyy");
+};
+
+// Helper function for comparing dates (returns a positive value for descending order)
+export const compareDatesDescending = (dateStrA: string | undefined, dateStrB: string | undefined): number => {
+  // Handle undefined or empty dates
+  if (!dateStrA && !dateStrB) return 0;
+  if (!dateStrA) return 1; // Place undefined dates at the end
+  if (!dateStrB) return -1;
+  
+  const dateA = new Date(dateStrA);
+  const dateB = new Date(dateStrB);
+  
+  // Check for invalid dates
+  if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;
+  if (isNaN(dateA.getTime())) return 1;
+  if (isNaN(dateB.getTime())) return -1;
+  
+  // Return positive for descending order (newer dates first)
+  return dateB.getTime() - dateA.getTime();
 };
 
 // Main custom hook that contains all dashboard data logic
@@ -507,7 +527,7 @@ export const useDashboardData = (data: any[], schema: any) => {
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [expectedRevenuePerDay, revenueMetrics.byDay]);
   
-  // Expected customers segregated into "actual" and "paid" - NOW WITH DATES
+  // Expected customers segregated into "actual" and "paid" - WITH IMPROVED DESCENDING DATE SORTING
   const expectedCustomersSegregated = useMemo(() => {
     // Start with empty arrays for both categories
     const result = {
@@ -569,8 +589,48 @@ export const useDashboardData = (data: any[], schema: any) => {
       }
     });
     
+    // Sort both "actual" and "paid" arrays in descending order by expectedDate using the helper function
+    result.actual.sort((a, b) => compareDatesDescending(a.expectedDate, b.expectedDate));
+    result.paid.sort((a, b) => compareDatesDescending(a.expectedDate, b.expectedDate));
+    
     return result;
   }, [filteredData, nyData, dateRange.startDate, dateRange.endDate]);
+  
+  // Group expected customers by date, with both actual (unpaid) and paid customers together
+  const groupedExpectedCustomers = useMemo(() => {
+    const grouped: Record<string, Array<CustomerData & { status: 'actual' | 'paid' }>> = {};
+    
+    // Add actual customers to the grouped object with status
+    expectedCustomersSegregated.actual.forEach(customer => {
+      const date = customer.expectedDate || '';
+      if (!grouped[date]) {
+        grouped[date] = [];
+      }
+      grouped[date].push({ ...customer, status: 'actual' });
+    });
+    
+    // Add paid customers to the grouped object with status
+    expectedCustomersSegregated.paid.forEach(customer => {
+      const date = customer.expectedDate || '';
+      if (!grouped[date]) {
+        grouped[date] = [];
+      }
+      grouped[date].push({ ...customer, status: 'paid' });
+    });
+    
+    // Sort dates in descending order using proper date comparison
+    const sortedDates = Object.keys(grouped).sort((a, b) => {
+      return compareDatesDescending(a, b);
+    });
+    
+    // Create final result with dates in sorted order
+    const result: Record<string, Array<CustomerData & { status: 'actual' | 'paid' }>> = {};
+    sortedDates.forEach(date => {
+      result[date] = grouped[date];
+    });
+    
+    return result;
+  }, [expectedCustomersSegregated]);
   
   // New sales customers (customers who weren't in the previous month) - NOW WITH DATES
   const newSalesCustomers = useMemo(() => {
@@ -623,7 +683,66 @@ export const useDashboardData = (data: any[], schema: any) => {
       });
     }
     
-    return Array.from(newCustomers.values());
+    // Sort new sales customers by payment date in descending order (newest first)
+    return Array.from(newCustomers.values())
+      .sort((a, b) => compareDatesDescending(a.paymentDate, b.paymentDate));
+  }, [filteredData, nyData, dateRange.startDate, dateRange.endDate]);
+  
+  // Lost revenue customers (customers who were in the previous month but not in the current month)
+  const lostRevenueCustomers = useMemo(() => {
+    if (!filteredData.length || !dateRange.startDate || !dateRange.endDate || !Array.isArray(nyData)) {
+      return [] as CustomerData[];
+    }
+    
+    // Get previous month customers with their amounts
+    const previousCustomers = new Map<string, CustomerData>();
+    filteredData.forEach(row => {
+      if (row.customer_email && row.amount && row.customer_id) {
+        const amount = typeof row.amount === 'string' ? Number(row.amount) : row.amount;
+        const originalDate = row.created_at;
+        // Calculate expected payment date (shift the date forward one month)
+        const expectedDate = shiftDateForwardOneMonth(extractDateOnly(originalDate));
+        
+        if (!previousCustomers.has(row.customer_email)) {
+          previousCustomers.set(row.customer_email, {
+            email: row.customer_email,
+            id: row.customer_id,
+            amount: Number(amount || 0) / 100,
+            expectedDate: format(new Date(expectedDate), 'MMM d, yyyy') // Format for display
+          });
+        } else {
+          const customer = previousCustomers.get(row.customer_email)!;
+          customer.amount += Number(amount || 0) / 100;
+        }
+      }
+    });
+    
+    // Get current month customer emails
+    const currentCustomerEmails = new Set<string>();
+    if (dateRange.startDate && dateRange.endDate) {
+      const startDateStr = format(dateRange.startDate, "yyyy-MM-dd");
+      const endDateStr = format(endOfDay(dateRange.endDate), "yyyy-MM-dd");
+      
+      nyData.filter(item => {
+        if (!item.created_at) return false;
+        const itemDateStr = extractDateOnly(item.created_at);
+        return itemDateStr >= startDateStr && itemDateStr <= endDateStr;
+      }).forEach(row => {
+        if (row.customer_email) {
+          currentCustomerEmails.add(row.customer_email);
+        }
+      });
+    }
+    
+    // Find customers who were in the previous month but not in the current month
+    const lostCustomers = Array.from(previousCustomers.entries())
+      .filter(([email]) => !currentCustomerEmails.has(email))
+      .map(([_, customer]) => customer);
+    
+    // Sort lost customers in descending order by amount
+    lostCustomers.sort((a, b) => b.amount - a.amount);
+    
+    return lostCustomers;
   }, [filteredData, nyData, dateRange.startDate, dateRange.endDate]);
   
   // Total Expected Revenue (fixed to properly type and handle the values)
@@ -683,12 +802,14 @@ export const useDashboardData = (data: any[], schema: any) => {
     
     // Customer lists
     expectedCustomersSegregated,
+    groupedExpectedCustomers, // Added new grouped customers by date
     newSalesCustomers,
+    lostRevenueCustomers,
     
     // Revenue metrics
     revenueMetrics,
     totalExpectedRevenue,
-    totalRevenue, // Added total revenue
+    totalRevenue,
     
     // Display data
     displayDateRange,
